@@ -30,7 +30,11 @@
         </div>
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         <button type="submit" class="login-btn" :disabled="loading">
-          {{ loading ? 'Memproses...' : 'Login' }}
+          <span v-if="loading" class="btn-loading">
+            <span class="spinner"></span>
+            Memproses...
+          </span>
+          <span v-else>Login</span>
         </button>
       </form>
       <p class="login-footer">
@@ -44,6 +48,7 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { authApi } from '@/api/auth';
 
 const router = useRouter();
 const form = reactive({
@@ -67,38 +72,56 @@ onMounted(() => {
 
 const STORAGE_USERS = 'slapur_users';
 
-function handleLogin() {
+async function handleLogin() {
   errorMsg.value = '';
   loading.value = true;
-  setTimeout(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_USERS);
-      const users = raw ? JSON.parse(raw) : [];
-      const email = form.email.trim().toLowerCase();
-      const found = users.find((u) => u.email.toLowerCase() === email);
-      if (!found) {
-        errorMsg.value = 'Email belum terdaftar. Silakan daftar akun dulu.';
-        loading.value = false;
-        return;
-      }
-      if (found.password !== form.password) {
-        errorMsg.value = 'Password salah.';
-        loading.value = false;
-        return;
-      }
-      const user = {
-        email: found.email,
-        nama: found.nama || found.email.split('@')[0],
-        jenis_kelamin: found.jenis_kelamin,
-      };
-      localStorage.setItem('auth_token', 'token-' + Date.now());
-      localStorage.setItem('user', JSON.stringify(user));
-      router.push(`/siswa/${found.jenis_kelamin}/dashboard`);
-    } catch (e) {
-      errorMsg.value = 'Login gagal. Coba lagi.';
+  try {
+    const res = await authApi.login(form.email.trim(), form.password);
+    authApi.setToken(res.token);
+    if (res.user) localStorage.setItem('user', JSON.stringify(res.user));
+    const jk = res.user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
+    router.push(`/siswa/${jk}/dashboard`);
+    return;
+  } catch (e) {
+    const msg = e.message || '';
+    if (e.errors?.email) {
+      errorMsg.value = Array.isArray(e.errors.email) ? e.errors.email[0] : e.errors.email;
+    } else if (msg.includes('Koneksi gagal')) {
+      errorMsg.value = msg;
+      fallbackLoginLocal();
+    } else {
+      errorMsg.value = msg || 'Email atau password salah. Belum punya akun? Daftar di sini.';
     }
+  } finally {
     loading.value = false;
-  }, 400);
+  }
+}
+
+function fallbackLoginLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_USERS);
+    const users = raw ? JSON.parse(raw) : [];
+    const email = form.email.trim().toLowerCase();
+    const found = users.find((u) => u.email?.toLowerCase() === email);
+    if (!found) {
+      errorMsg.value = 'Email atau password salah. Belum punya akun? Daftar di sini.';
+      return;
+    }
+    if (found.password !== form.password) {
+      errorMsg.value = 'Password salah.';
+      return;
+    }
+    const user = {
+      email: found.email,
+      nama: found.nama || found.email.split('@')[0],
+      jenis_kelamin: found.jenis_kelamin,
+    };
+    localStorage.setItem('auth_token', 'token-' + Date.now());
+    localStorage.setItem('user', JSON.stringify(user));
+    router.push(`/siswa/${found.jenis_kelamin}/dashboard`);
+  } catch (_) {
+    errorMsg.value = 'Login gagal. Coba lagi.';
+  }
 }
 </script>
 
@@ -194,8 +217,30 @@ function handleLogin() {
   background: #0d9488;
 }
 .login-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+  opacity: 0.85;
+  cursor: wait;
+}
+
+.btn-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .login-footer {
   margin-top: 1.5rem;

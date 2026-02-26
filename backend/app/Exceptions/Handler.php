@@ -3,6 +3,8 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -53,29 +55,25 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $e)
     {
-        if ($request->expectsJson() || $request->is('api/*')) {
+        if ($request && ($request->expectsJson() || $request->is('api/*'))) {
             if ($e instanceof ValidationException) {
                 return response()->json([
                     'message' => $e->getMessage(),
                     'errors' => $e->errors(),
                 ], 422);
             }
-            $code = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
+            $code = 500;
+            if ($e instanceof HttpException) {
+                $code = $e->getStatusCode();
+            }
+            if ($code < 400) {
+                $code = 500;
+            }
             return response()->json([
                 'message' => config('app.debug') ? $e->getMessage() : 'Terjadi kesalahan server.',
-            ], $code >= 400 ? $code : 500);
+            ], $code);
         }
         return parent::render($request, $e);
     }
 
-    /**
-     * Convert validation exception to response (untuk request yang expectsJson).
-     */
-    protected function invalidJson($request, ValidationException $exception)
-    {
-        return response()->json([
-            'message' => $exception->getMessage(),
-            'errors' => $exception->errors(),
-        ], $exception->status);
-    }
 }

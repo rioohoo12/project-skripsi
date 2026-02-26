@@ -71,6 +71,7 @@
 <script setup>
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { authApi } from '@/api/auth';
 
 const STORAGE_USERS = 'slapur_users';
 
@@ -86,7 +87,7 @@ const loading = ref(false);
 const errorMsg = ref('');
 const successMsg = ref('');
 
-function handleRegister() {
+async function handleRegister() {
   errorMsg.value = '';
   successMsg.value = '';
   if (form.password !== form.confirmPassword) {
@@ -98,32 +99,37 @@ function handleRegister() {
     return;
   }
   loading.value = true;
-  setTimeout(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_USERS);
-      const users = raw ? JSON.parse(raw) : [];
-      const email = form.email.trim().toLowerCase();
-      if (users.some((u) => u.email.toLowerCase() === email)) {
-        errorMsg.value = 'Email sudah terdaftar. Gunakan email lain atau login.';
-        loading.value = false;
-        return;
-      }
-      users.push({
-        nama: form.nama.trim(),
-        email,
-        password: form.password,
-        jenis_kelamin: form.jenisKelamin,
-      });
-      localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-      successMsg.value = 'Akun berhasil dibuat. Mengalihkan ke login...';
-      setTimeout(() => {
-        router.push('/login');
-      }, 1200);
-    } catch (e) {
-      errorMsg.value = 'Pendaftaran gagal. Coba lagi.';
+  try {
+    const res = await authApi.register(form);
+    if (!res || !res.token) {
+      errorMsg.value = 'Terjadi kesalahan: respons server tidak valid. Coba lagi.';
+      return;
     }
+    authApi.setToken(res.token);
+    if (res.user && typeof res.user === 'object') {
+      localStorage.setItem('user', JSON.stringify(res.user));
+    }
+    successMsg.value = res.message || 'Akun berhasil dibuat. Silakan login.';
+    setTimeout(() => router.push('/login'), 1500);
+  } catch (e) {
+    const msg = e?.message || 'Pendaftaran gagal.';
+    if (e?.errors?.email) {
+      errorMsg.value = Array.isArray(e.errors.email) ? e.errors.email[0] : e.errors.email;
+    } else if (e?.errors && typeof e.errors === 'object') {
+      const first = Object.values(e.errors).flat().find(Boolean);
+      errorMsg.value = first || msg;
+    } else if (msg.includes('sudah terdaftar') || msg.includes('unique')) {
+      errorMsg.value = 'Email ini sudah terdaftar. Silakan login dengan email ini.';
+    } else if (msg.includes('Koneksi gagal') || msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      errorMsg.value = 'Koneksi gagal. Pastikan backend Laravel berjalan (php artisan serve di folder backend).';
+    } else if (msg.includes('Terjadi kesalahan') && e?.status) {
+      errorMsg.value = `Terjadi kesalahan (${e.status}). Pastikan backend berjalan di http://127.0.0.1:8000 dan migrasi sudah dijalankan (php artisan migrate).`;
+    } else {
+      errorMsg.value = msg;
+    }
+  } finally {
     loading.value = false;
-  }, 400);
+  }
 }
 </script>
 

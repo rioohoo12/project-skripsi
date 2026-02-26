@@ -56,6 +56,7 @@
           <span class="nav-chevron" :class="{ open: openGroup === 'clearance' }">›</span>
         </button>
         <div v-show="openGroup === 'clearance'" class="nav-sub">
+          <router-link :to="`/siswa/${jenisKelamin}/clearance/pembayaran-pendaftaran`" class="nav-sub-item" active-class="active">Pembayaran Pendaftaran</router-link>
           <router-link :to="`/siswa/${jenisKelamin}/clearance/mid`" class="nav-sub-item" active-class="active">MID</router-link>
           <router-link :to="`/siswa/${jenisKelamin}/clearance/final`" class="nav-sub-item" active-class="active">Final Test</router-link>
         </div>

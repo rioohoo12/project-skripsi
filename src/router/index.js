@@ -36,6 +36,7 @@ const routes = [
       { path: 'pendaftaran/kamar', name: 'PilihKamar', component: () => import('@/views/siswa/PilihKamar.vue') },
       { path: 'pendaftaran/kurikulum', name: 'Kurikulum', component: () => import('@/views/siswa/Kurikulum.vue') },
       { path: 'clearance', name: 'ClearanceSlip', component: () => import('@/views/siswa/ClearanceMid.vue') },
+      { path: 'clearance/pembayaran-pendaftaran', name: 'ClearancePembayaran', component: () => import('@/views/siswa/ClearancePembayaran.vue') },
       { path: 'clearance/mid', name: 'ClearanceMid', component: () => import('@/views/siswa/ClearanceMid.vue') },
       { path: 'clearance/final', name: 'ClearanceFinal', component: () => import('@/views/siswa/ClearanceFinal.vue') },
       { path: 'administrasi', name: 'Administrasi', component: () => import('@/views/siswa/AdministrasiSurat.vue') },

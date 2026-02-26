@@ -71,6 +71,7 @@
           >Clearance Slip</a
         >
         <ul v-if="activeMenu === 'clearance'" class="submenu">
+          <li><a @click="setSubmenu('pembayaran-pendaftaran')">Pembayaran Pendaftaran</a></li>
           <li><a @click="setSubmenu('mid')">MID</a></li>
           <li><a @click="setSubmenu('final')">Final Test</a></li>
         </ul>

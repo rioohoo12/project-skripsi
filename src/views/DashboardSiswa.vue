@@ -67,6 +67,7 @@ const pageTitle = computed(() => {
     PilihKamar: 'Pilih Kamar',
     Kurikulum: 'Kurikulum',
     ClearanceSlip: 'Clearance Slip',
+    ClearancePembayaran: 'Pembayaran Pendaftaran',
     ClearanceMid: 'MID',
     ClearanceFinal: 'Final Test',
     Administrasi: 'Administrasi',
