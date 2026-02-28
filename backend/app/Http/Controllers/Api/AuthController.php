@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -67,6 +69,47 @@ class AuthController extends Controller
         ], 201);
     }
 
+    public function loginStaff(Request $request)
+    {
+        $this->ensureJsonInput($request);
+
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        $user = User::where('email', $request->email)
+            ->first(['id', 'name', 'email', 'password', 'role']);
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['Email atau password salah.'],
+            ]);
+        }
+
+        $role = $user->role ?? 'siswa';
+        $allowed = ['staff', 'admin', 'super_admin'];
+        if (!in_array($role, $allowed)) {
+            throw ValidationException::withMessages([
+                'email' => ['Akun ini bukan akun staff. Gunakan login siswa atau login guru.'],
+            ]);
+        }
+
+        $token = $user->createToken('slapur-login-staff')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login berhasil',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
     public function login(Request $request)
     {
         $this->ensureJsonInput($request);
@@ -106,6 +149,150 @@ class AuthController extends Controller
             'token' => $token,
             'token_type' => 'Bearer',
         ]);
+    }
+
+    public function loginGuru(Request $request)
+    {
+        $this->ensureJsonInput($request);
+
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        $user = User::where('email', $request->email)
+            ->first(['id', 'name', 'email', 'password', 'role']);
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['Email atau password salah.'],
+            ]);
+        }
+
+        $role = $user->role ?? 'siswa';
+        $allowed = ['guru', 'admin', 'super_admin'];
+        if (!in_array($role, $allowed)) {
+            throw ValidationException::withMessages([
+                'email' => ['Akun ini bukan akun guru. Gunakan login siswa atau login staff.'],
+            ]);
+        }
+
+        $token = $user->createToken('slapur-login-guru')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login berhasil',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
+    public function registerGuru(Request $request)
+    {
+        $this->ensureJsonInput($request);
+
+        $validated = $request->validate([
+            'nama' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+        ], [
+            'nama.required' => 'Nama lengkap wajib diisi.',
+            'email.required' => 'Email wajib diisi.',
+            'email.email' => 'Format email tidak valid.',
+            'email.unique' => 'Email ini sudah terdaftar.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak sama.',
+        ]);
+
+        $user = User::create([
+            'name' => $validated['nama'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => 'guru',
+        ]);
+
+        return response()->json([
+            'message' => 'Akun guru berhasil dibuat. Silakan login.',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+        ], 201);
+    }
+
+    public function forgotPasswordGuru(Request $request)
+    {
+        $this->ensureJsonInput($request);
+
+        $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Email wajib diisi.',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+        $allowed = ['guru', 'admin', 'super_admin'];
+        if (!$user || !in_array($user->role ?? '', $allowed)) {
+            return response()->json([
+                'message' => 'Jika email terdaftar sebagai akun guru, Anda akan menerima tautan reset password.',
+            ]);
+        }
+
+        $token = Str::random(60);
+        DB::table('password_resets')->updateOrInsert(
+            ['email' => $user->email],
+            ['token' => Hash::make($token), 'created_at' => now()]
+        );
+
+        // TODO: kirim email dengan link reset (misalnya /guru/reset-password?token=...&email=...)
+        // Untuk pengembangan, token bisa di-log atau dikirim response (jangan di production)
+        return response()->json([
+            'message' => 'Jika email terdaftar sebagai akun guru, Anda akan menerima tautan reset password.',
+            'reset_token' => $token,
+            'email' => $user->email,
+        ]);
+    }
+
+    public function resetPasswordGuru(Request $request)
+    {
+        $this->ensureJsonInput($request);
+
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:6|confirmed',
+        ], [
+            'email.required' => 'Email wajib diisi.',
+            'token.required' => 'Token reset wajib diisi.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal 6 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak sama.',
+        ]);
+
+        $row = DB::table('password_resets')->where('email', $validated['email'])->first();
+        if (!$row || !Hash::check($validated['token'], $row->token)) {
+            throw ValidationException::withMessages([
+                'token' => ['Token tidak valid atau sudah kadaluarsa.'],
+            ]);
+        }
+
+        $user = User::where('email', $validated['email'])->first();
+        if (!$user) {
+            throw ValidationException::withMessages(['email' => ['Akun tidak ditemukan.']]);
+        }
+
+        $user->update(['password' => Hash::make($validated['password'])]);
+        DB::table('password_resets')->where('email', $validated['email'])->delete();
+
+        return response()->json(['message' => 'Password berhasil direset. Silakan login.']);
     }
 
     public function logout(Request $request)

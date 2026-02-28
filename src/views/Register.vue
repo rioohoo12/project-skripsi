@@ -62,7 +62,7 @@
       </form>
       <p class="register-footer">
         Sudah punya akun?
-        <router-link to="/login" class="link">Login di sini</router-link>
+        <router-link to="/siswa" class="link">Login di sini</router-link>
       </p>
     </div>
   </div>
@@ -110,7 +110,7 @@ async function handleRegister() {
       localStorage.setItem('user', JSON.stringify(res.user));
     }
     successMsg.value = res.message || 'Akun berhasil dibuat. Silakan login.';
-    setTimeout(() => router.push('/login'), 1500);
+    setTimeout(() => router.push('/siswa'), 1500);
   } catch (e) {
     const msg = e?.message || 'Pendaftaran gagal.';
     if (e?.errors?.email) {

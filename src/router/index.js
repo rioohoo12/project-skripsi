@@ -4,10 +4,10 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    redirect: () => ({ path: '/login' }),
+    redirect: () => ({ path: '/siswa' }),
   },
   {
-    path: '/login',
+    path: '/siswa',
     name: 'Login',
     component: () => import('@/views/Login.vue'),
   },
@@ -15,6 +15,41 @@ const routes = [
     path: '/register',
     name: 'Register',
     component: () => import('@/views/Register.vue'),
+  },
+  {
+    path: '/guru',
+    name: 'LoginGuru',
+    component: () => import('@/views/LoginGuru.vue'),
+  },
+  {
+    path: '/guru/buat-akun',
+    name: 'BuatAkunGuru',
+    component: () => import('@/views/guru/BuatAkunGuru.vue'),
+  },
+  {
+    path: '/guru/lupa-password',
+    name: 'LupaPasswordGuru',
+    component: () => import('@/views/guru/LupaPasswordGuru.vue'),
+  },
+  {
+    path: '/guru/reset-password',
+    name: 'ResetPasswordGuru',
+    component: () => import('@/views/guru/ResetPasswordGuru.vue'),
+  },
+  {
+    path: '/guru/dashboard',
+    name: 'DashboardGuru',
+    component: () => import('@/views/guru/DashboardGuru.vue'),
+  },
+  {
+    path: '/staff',
+    name: 'LoginStaff',
+    component: () => import('@/views/LoginStaff.vue'),
+  },
+  {
+    path: '/staff/dashboard',
+    name: 'DashboardStaff',
+    component: () => import('@/views/staff/DashboardStaff.vue'),
   },
   {
     path: '/siswa/:jenisKelamin',
@@ -60,15 +95,84 @@ function isLoggedIn() {
   }
 }
 
+const GURU_ROLES = ['guru', 'admin', 'super_admin'];
+const STAFF_ROLES = ['staff', 'admin', 'super_admin'];
+
+function isGuruRole(user) {
+  return user?.role && GURU_ROLES.includes(user.role);
+}
+
+function isStaffRole(user) {
+  return user?.role && STAFF_ROLES.includes(user.role);
+}
+
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
+}
+
 router.beforeEach((to, _from, next) => {
   const toSiswa = to.path.startsWith('/siswa/');
-  if (toSiswa && !isLoggedIn()) {
-    next('/login');
+  const toGuru = to.path.startsWith('/guru');
+  const user = getUser();
+
+  const toStaff = to.path.startsWith('/staff');
+
+  if (toGuru) {
+    const guruPublicPaths = ['/guru', '/guru/buat-akun', '/guru/lupa-password', '/guru/reset-password'];
+    const isGuruPublic = guruPublicPaths.includes(to.path);
+    if (to.path === '/guru' && isLoggedIn() && isGuruRole(user)) {
+      next('/guru/dashboard');
+      return;
+    }
+    if (!isGuruPublic && !isLoggedIn()) {
+      next('/guru');
+      return;
+    }
+    if (!isGuruPublic && !isGuruRole(user)) {
+      next('/guru');
+      return;
+    }
+    next();
     return;
   }
-  if ((to.path === '/login' || to.path === '/register') && isLoggedIn()) {
+
+  if (toStaff) {
+    if (to.path === '/staff' && isLoggedIn() && isStaffRole(user)) {
+      next('/staff/dashboard');
+      return;
+    }
+    if (to.path !== '/staff' && !isLoggedIn()) {
+      next('/staff');
+      return;
+    }
+    if (to.path !== '/staff' && !isStaffRole(user)) {
+      next('/staff');
+      return;
+    }
+    next();
+    return;
+  }
+
+  if (to.path === '/siswa' && isLoggedIn()) {
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const jk = user.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
+      next(`/siswa/${jk}/dashboard`);
+      return;
+    } catch {
+      next();
+      return;
+    }
+  }
+  if (toSiswa && !isLoggedIn()) {
+    next('/siswa');
+    return;
+  }
+  if (to.path === '/register' && isLoggedIn()) {
+    try {
       const jk = user.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
       next(`/siswa/${jk}/dashboard`);
       return;
@@ -79,14 +183,21 @@ router.beforeEach((to, _from, next) => {
   }
   if (to.path === '/') {
     if (isLoggedIn()) {
+      if (isGuruRole(user)) {
+        next('/guru/dashboard');
+        return;
+      }
+      if (isStaffRole(user)) {
+        next('/staff/dashboard');
+        return;
+      }
       try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
         const jk = user.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
         next(`/siswa/${jk}/dashboard`);
         return;
       } catch {}
     }
-    next('/login');
+    next('/siswa');
     return;
   }
   next();

@@ -9,6 +9,8 @@ function setToken(token) {
   else localStorage.removeItem('auth_token');
 }
 
+const REQUEST_TIMEOUT_MS = 12000; // 12 detik
+
 async function request(url, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -16,12 +18,19 @@ async function request(url, options = {}) {
     ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
     ...options.headers,
   };
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let res;
   try {
-    res = await fetch(`${API_BASE}${url}`, { ...options, headers });
+    res = await fetch(`${API_BASE}${url}`, { ...options, headers, signal: controller.signal });
   } catch (e) {
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') {
+      throw new Error('Permintaan terlalu lama. Pastikan backend berjalan (php artisan serve di folder backend).');
+    }
     throw new Error('Koneksi gagal. Pastikan backend berjalan (php artisan serve di folder backend).');
   }
+  clearTimeout(timeoutId);
   const text = await res.text();
   let data = {};
   try {
@@ -69,6 +78,46 @@ export const authApi = {
     return request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    });
+  },
+  async loginGuru(email, password) {
+    return request('/auth/login-guru', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+  async loginStaff(email, password) {
+    return request('/auth/login-staff', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+  },
+  async registerGuru(payload) {
+    return request('/auth/register-guru', {
+      method: 'POST',
+      body: JSON.stringify({
+        nama: payload.nama,
+        email: payload.email,
+        password: payload.password,
+        password_confirmation: payload.confirmPassword,
+      }),
+    });
+  },
+  async forgotPasswordGuru(email) {
+    return request('/auth/forgot-password-guru', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+  async resetPasswordGuru(payload) {
+    return request('/auth/reset-password-guru', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: payload.email,
+        token: payload.token,
+        password: payload.password,
+        password_confirmation: payload.confirmPassword,
+      }),
     });
   },
   async logout() {

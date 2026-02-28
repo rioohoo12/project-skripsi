@@ -29,10 +29,13 @@
           />
         </div>
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+        <p v-if="loading && loadingLong" class="loading-hint">
+          Proses mungkin memakan waktu beberapa detik. Pastikan backend Laravel (<code>php artisan serve</code>) sedang berjalan.
+        </p>
         <button type="submit" class="login-btn" :disabled="loading">
           <span v-if="loading" class="btn-loading">
             <span class="spinner"></span>
-            Memproses...
+            {{ loadingLong ? 'Masih memproses...' : 'Memproses...' }}
           </span>
           <span v-else>Login</span>
         </button>
@@ -46,7 +49,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authApi } from '@/api/auth';
 
@@ -56,7 +59,23 @@ const form = reactive({
   password: '',
 });
 const loading = ref(false);
+const loadingLong = ref(false);
 const errorMsg = ref('');
+
+let loadingLongTimer = null;
+watch(loading, (isLoading) => {
+  if (!isLoading) {
+    loadingLong.value = false;
+    if (loadingLongTimer) {
+      clearTimeout(loadingLongTimer);
+      loadingLongTimer = null;
+    }
+    return;
+  }
+  loadingLongTimer = setTimeout(() => {
+    loadingLong.value = true;
+  }, 2500);
+});
 
 onMounted(() => {
   try {
@@ -200,6 +219,18 @@ function fallbackLoginLocal() {
   font-size: 0.875rem;
   color: #dc2626;
   margin-bottom: 1rem;
+}
+.loading-hint {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: -0.5rem 0 1rem 0;
+  line-height: 1.4;
+}
+.loading-hint code {
+  background: #f1f5f9;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85em;
 }
 .login-btn {
   width: 100%;
